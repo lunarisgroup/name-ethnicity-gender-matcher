@@ -1,5 +1,5 @@
 {
-  "name": "nigerian-names-predictor",
+  "name": "name-ethnicity-gender-matcher",
   "version": "1.0.0",
   "description": "Fast, accurate Nigerian name matcher — returns gender, ethnicity, and confidence level for any Nigerian first/last/middle name.",
   "main": "src/index.js",

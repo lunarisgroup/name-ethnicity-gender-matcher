@@ -1,36 +1,38 @@
-# nigerian-names-predictor
+# name-ethnicity-gender-matcher
 
-**Fast, accurate Nigerian name matcher** — returns gender, ethnicity, and confidence for any Nigerian first / last / middle name.
-
-- **723+ curated names** across 10+ ethnic groups
-- **Three-tier pipeline**: dictionary → pattern rules → n-gram inference
-- **< 4 µs** per single lookup (no network, no AI API required)
-- **Zero dependencies** — pure Node.js
-- Works as a drop-in NPM package (CommonJS)
+> Fast, accurate Nigerian name matcher — given any first, last, or middle name, returns the **gender**, **ethnicity**, and a **confidence score**. No internet connection, no AI API, no dependencies.
 
 ---
 
-## Ethnic groups covered
+## Highlights
 
-| Ethnicity     | Dictionary names | Key patterns |
-|---------------|-----------------|--------------|
-| Yoruba        | 185             | `Oluwa-`, `Ade-`, `Akin-`, `-tunde`, `-wale`, `-bayo` |
-| Hausa/Fulani  | 104             | Arabic-origin Islamic names, `Dan-`, calendar names |
-| Igbo          | 99              | `Chi-`, `Chukwu-`, `Obi-`, `Nna-`, `Eze-` |
-| Efik/Ibibio   | 59              | Bassey, Okon, Akpan, Inyang, Mfon, Uduak |
-| Edo (Bini)    | 54              | `Osa-`, `Omor-`, `-osa`, Itohan, Esosa |
-| Tiv           | 51              | `Ter-`, `Aondo-`, Mwuese, Doosuur |
-| Ijaw          | 46              | `Ebi-`, Tonye, Preye, Ibinabo, Warribibo |
-| Urhobo        | 45              | `Oghene-`, Rukevwe, Okiemute |
-| Kanuri        | 22              | Shettima, Zanna, Bulama, Grema |
-| Igala + other | 37              | Ameh, Ocholi, Onoja, Davou, etc. |
+| | |
+|---|---|
+| 📚 **757 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 9 more groups |
+| ⚡ **~2.6 µs per lookup** | Plain `Map` lookup — faster than a database round-trip |
+| 🔗 **Zero dependencies** | Pure Node.js, no `npm install` overhead |
+| 🧠 **3-tier fallback** | Dictionary → Pattern rules → N-gram inference |
+| 🏷️ **TypeScript ready** | Ships with `index.d.ts` type declarations |
+| ✅ **48 tests** | Run `npm test` to verify everything works |
 
 ---
 
 ## Installation
 
+### Option A — Local (from folder)
+
 ```bash
-npm install nigerian-names-predictor
+npm install C:\Users\venso\Desktop\etj\predictor_lib
+```
+
+### Option B — From GitHub
+
+```bash
+# Always latest:
+npm install github:lunarisgroup/name-ethnicity-gender-matcher
+
+# Pinned to a stable release (recommended for production):
+npm install github:lunarisgroup/name-ethnicity-gender-matcher#v1.0.0
 ```
 
 ---
@@ -38,31 +40,33 @@ npm install nigerian-names-predictor
 ## Quick start
 
 ```js
-const { match, matchBatch, analyzeFullName, suggest } = require('nigerian-names-predictor');
+const { match, matchBatch, analyzeFullName, suggest } = require('name-ethnicity-gender-matcher');
 
 // ── Single name ───────────────────────────────────────────────
 match('Oluwasegun');
 // {
-//   name:       'Oluwasegun',
-//   normalized: 'oluwasegun',
-//   gender:     'M',
-//   ethnicity:  'Yoruba',
-//   confidence: 1,
-//   method:     'dictionary',
+//   name:         'Oluwasegun',
+//   normalized:   'oluwasegun',
+//   gender:       'M',
+//   ethnicity:    'Yoruba',
+//   confidence:   1,
+//   method:       'dictionary',
 //   alternatives: []
 // }
 
-match('Chioma');
-// { gender: 'F', ethnicity: 'Igbo', confidence: 1, ... }
+match('Chioma');     // { gender: 'F', ethnicity: 'Igbo',  confidence: 1 }
+match('Hauwa');      // { gender: 'F', ethnicity: 'Hausa', confidence: 1 }
+match('Bassey');     // { gender: 'M', ethnicity: 'Efik',  confidence: 0.95 }
 
-match('Hauwa');
-// { gender: 'F', ethnicity: 'Hausa', confidence: 1, ... }
+// ── Names not in dictionary — matched by pattern rules ────────
+match('Oluwakayode'); // { gender: 'U', ethnicity: 'Yoruba', confidence: 0.96, method: 'pattern' }
+match('Chibuogwu');   // { gender: 'M', ethnicity: 'Igbo',   confidence: 0.95, method: 'pattern' }
 
-// ── Batch ─────────────────────────────────────────────────────
-matchBatch(['Abubakar', 'Bassey', 'Mwuese', 'Tonye']);
-// Array of MatchResult objects
+// ── Batch — match multiple names at once ──────────────────────
+matchBatch(['Abubakar', 'Ngozi', 'Mwuese', 'Tonye', 'Shettima']);
+// → Array of MatchResult objects, one per name
 
-// ── Full name (first + middle + last) ─────────────────────────
+// ── Full name — first + middle + last ─────────────────────────
 analyzeFullName('Alhaji Musa Usman Garba');
 // {
 //   overallEthnicity: 'Hausa',
@@ -71,10 +75,33 @@ analyzeFullName('Alhaji Musa Usman Garba');
 //   components:       [ ...per-token results... ]
 // }
 
-// ── Fuzzy / "did you mean?" ───────────────────────────────────
-suggest('Oluwasegn');   // typo
-// [{ name: 'oluwasegun', distance: 1, entry: { gender: 'M', ... } }, ...]
+analyzeFullName('Chidinma Adaeze Okafor');
+// { overallEthnicity: 'Igbo', overallGender: 'F', confidence: 1 }
+
+// ── Fuzzy suggest — "did you mean?" for typos ────────────────
+suggest('Oluwasegn');
+// [{ name: 'oluwasegun', distance: 1, entry: { gender: 'M', ethnicity: 'Yoruba' } }, ...]
 ```
+
+---
+
+## Ethnic groups covered
+
+| Ethnicity      | Names | Key identifiers |
+|----------------|-------|-----------------|
+| **Yoruba**     | 196   | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
+| **Igbo**       | 122   | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-` |
+| **Hausa**      | 104   | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
+| **Efik/Ibibio**| 59    | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
+| **Edo (Bini)** | 54    | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
+| **Tiv**        | 51    | `Ter-`, `Aondo-`, Mwuese, Doosuur, Nguveren |
+| **Ijaw**       | 46    | `Ebi-`, Tonye, Preye, Ibinabo, Warribibo |
+| **Urhobo**     | 45    | `Oghene-`, Rukevwe, Okiemute, Ejiro |
+| **Kanuri**     | 22    | Shettima, Zanna, Bulama, Grema, Modu |
+| **Igala**      | 16    | Ameh, Ocholi, Onoja, Ogwuche |
+| **Other**      | 37    | Nupe, Berom, Idoma, Ogoni, Tarok, Gbagyi, Jukun |
+
+> **Total: 757 names** · 497 male · 223 female · 37 unisex
 
 ---
 
@@ -82,150 +109,191 @@ suggest('Oluwasegn');   // typo
 
 ### `match(name)` → `MatchResult`
 
-Matches a single name token.
+Matches a single name token. Accepts any casing, with or without diacritics.
 
-| Field          | Type              | Description |
-|----------------|-------------------|-------------|
-| `name`         | `string`          | Original input |
-| `normalized`   | `string`          | Lowercase, no diacritics |
-| `gender`       | `'M'│'F'│'U'│null`| Male / Female / Unisex |
-| `ethnicity`    | `string │ null`   | Ethnic group name |
-| `confidence`   | `number`          | 0.0 – 1.0 |
-| `method`       | `string`          | `'dictionary'│'pattern'│'ngram'│'unknown'` |
-| `alternatives` | `Array`           | Other possible ethnicities (for ambiguous names) |
+```ts
+match(name: string): MatchResult
+```
+
+| Field          | Type                    | Description |
+|----------------|-------------------------|-------------|
+| `name`         | `string`                | Original input as provided |
+| `normalized`   | `string`                | Lowercase, diacritics removed |
+| `gender`       | `'M' \| 'F' \| 'U' \| null` | Male / Female / Unisex |
+| `ethnicity`    | `string \| null`        | e.g. `'Yoruba'`, `'Igbo'`, `'Hausa'` |
+| `confidence`   | `number`                | 0.0 – 1.0 (see table below) |
+| `method`       | `string`                | How the result was found |
+| `alternatives` | `Array`                 | Other possible ethnicities for ambiguous names |
+
+**`method` values:**
+
+| Method | Meaning |
+|--------|---------|
+| `'dictionary'` | Exact match found in the curated name list |
+| `'pattern'`    | Matched by a prefix/suffix/substring rule (e.g. `Oluwa-` → Yoruba) |
+| `'ngram'`      | Inferred by character n-gram similarity |
+| `'unknown'`    | No match found in any tier |
 
 **Confidence guide:**
 
-| Confidence   | Meaning |
+| Range       | Meaning |
 |-------------|---------|
-| 0.90 – 1.00 | Exact dictionary match (very reliable) |
-| 0.80 – 0.90 | High-confidence pattern rule (e.g. `Oluwa-` prefix) |
+| 0.90 – 1.00 | Dictionary match — very reliable |
+| 0.80 – 0.96 | High-confidence pattern rule |
 | 0.60 – 0.80 | Medium-confidence pattern rule |
-| 0.30 – 0.60 | N-gram inference (weakest, treat as a hint) |
-| 0           | Unknown — name not recognized |
+| 0.10 – 0.55 | N-gram inference — use as a hint only |
+| 0           | Unknown |
 
 ---
 
 ### `matchBatch(names)` → `MatchResult[]`
 
-Accepts an array of name strings. More ergonomic than calling `match()` in a loop.
+Matches an array of names in one call.
 
 ```js
-matchBatch(['Adeyemi', 'Ngozi', 'Ibrahim']);
+matchBatch(['Adeyemi', 'Ngozi', 'Garba', 'Bassey']);
+// → [MatchResult, MatchResult, MatchResult, MatchResult]
 ```
 
 ---
 
 ### `analyzeFullName(fullName)` → `FullNameAnalysis`
 
-Splits a full name string on spaces/hyphens, strips titles (`Alhaji`, `Dr`, `Chief`, etc.), matches each token, then aggregates the results via a weighted vote.
+Splits a full name on spaces and hyphens, strips titles (`Alhaji`, `Dr`, `Chief`, `Pastor`, `Engr`, etc.), matches each token individually, then aggregates into one overall result using a weighted vote.
 
-| Field              | Type              | Description |
-|--------------------|-------------------|-------------|
-| `fullName`         | `string`          | Original input |
-| `components`       | `MatchResult[]`   | Per-token results |
-| `overallEthnicity` | `string │ null`   | Aggregated ethnicity |
-| `overallGender`    | `'M'│'F'│'U'│null`| Aggregated gender |
-| `confidence`       | `number`          | Average component confidence |
+```js
+analyzeFullName('Dr Adebayo Chukwuemeka Okafor');
+// {
+//   fullName:         'Dr Adebayo Chukwuemeka Okafor',
+//   overallEthnicity: 'Igbo',      ← Chukwuemeka + Okafor outweigh Adebayo
+//   overallGender:    'M',
+//   confidence:       0.983,
+//   components: [
+//     { name: 'adebayo',      ethnicity: 'Yoruba', gender: 'M', confidence: 1 },
+//     { name: 'chukwuemeka',  ethnicity: 'Igbo',   gender: 'M', confidence: 1 },
+//     { name: 'okafor',       ethnicity: 'Igbo',   gender: 'M', confidence: 0.95 },
+//   ]
+// }
+```
+
+| Field              | Type                    | Description |
+|--------------------|-------------------------|-------------|
+| `fullName`         | `string`                | Original input |
+| `components`       | `MatchResult[]`         | Per-token results |
+| `overallEthnicity` | `string \| null`        | Winning ethnicity by weighted vote |
+| `overallGender`    | `'M' \| 'F' \| 'U' \| null` | Winning gender by weighted vote |
+| `confidence`       | `number`                | Average of component confidences |
 
 ---
 
 ### `suggest(name, topN?)` → `Array`
 
-Returns the closest dictionary entries (by Levenshtein edit distance) for a possibly misspelled name. Useful for typo correction.
+Returns the closest dictionary entries for a misspelled or variant name, ranked by edit distance. Ties broken by confidence.
 
 ```js
-suggest('Chibike', 5);
-// [{ name: 'chibuike', distance: 1, entry: { gender: 'M', ethnicity: 'Igbo', ... } }]
+suggest('Chibike');
+// [{ name: 'chibuike', distance: 1, entry: { gender: 'M', ethnicity: 'Igbo', confidence: 1 } }]
+
+suggest('Adeyem', 3);
+// top 3 closest matches to 'adeyem'
 ```
 
 ---
 
 ### `dictionary` → `Map<string, object>`
 
-Direct read-only access to the master name Map. Useful for bulk lookups without the full `MatchResult` wrapper.
+Direct read-only access to the full master name map. Useful for bulk lookups or building your own logic on top.
 
 ```js
-const { dictionary } = require('nigerian-names-predictor');
-console.log(dictionary.size); // 723+
-console.log(dictionary.get('oluwasegun')); // { gender: 'M', ethnicity: 'Yoruba', confidence: 1 }
+const { dictionary } = require('name-ethnicity-gender-matcher');
+
+console.log(dictionary.size);
+// 757
+
+console.log(dictionary.get('oluwasegun'));
+// { gender: 'M', ethnicity: 'Yoruba', confidence: 1 }
+
+// Check if a name exists
+dictionary.has('chioma'); // true
+dictionary.has('john');   // false
 ```
 
 ---
 
 ## How it works
 
+Every name passes through three tiers, stopping as soon as a match is found:
+
 ```
-Input name
+Input: "Oluwakayode"
     │
-    ▼
-┌─────────────────────────────────────────────────────┐
-│  Normalizer                                         │
-│  • Strip diacritics (ẹ→e, ọ→o, ṣ→s)               │
-│  • Lowercase                                        │
-│  • Remove non-alpha chars                           │
-│  • Strip titles (Alhaji, Dr, Chief, …)              │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  Tier 1 — Dictionary  (O(1) Map lookup)             │
-│  723+ curated names → { gender, ethnicity, conf }   │
-│  Hits return confidence 0.75–1.00                   │
-└──────────────────────┬──────────────────────────────┘
-                       │ MISS
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  Tier 2 — Pattern Rules  (~120 rules)               │
-│  Prefix rules : Oluwa-, Chi-, Akin-, Oghene-, …     │
-│  Suffix rules : -tunde, -wale, -bayo, -seun, …      │
-│  Substring    : chukwu, gbenga, gboyega, …          │
-│  Rules sorted: exact > substring > longer > shorter │
-│  Hits return confidence 0.60–0.98                   │
-└──────────────────────┬──────────────────────────────┘
-                       │ MISS
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│  Tier 3 — N-gram Inference                          │
-│  Bigram + trigram cosine similarity against         │
-│  per-ethnicity profiles built from the dictionary   │
-│  Hits return confidence 0.10–0.55                   │
-└──────────────────────┬──────────────────────────────┘
-                       │ MISS
-                       ▼
-                 method: 'unknown'
-                 confidence: 0
+    ▼  Normalizer
+    │  • Strip diacritics  (ẹ→e, ọ→o, ṣ→s)
+    │  • Lowercase
+    │  • Remove non-alpha characters
+    │  • Strip titles (Alhaji, Dr, Chief, Pastor …)
+    │
+    ▼  Tier 1 — Dictionary  [O(1) Map lookup]
+    │  757 curated names with gender + ethnicity + confidence
+    │  ✓ HIT  → return immediately, confidence 0.75–1.00
+    │  ✗ MISS ↓
+    │
+    ▼  Tier 2 — Pattern Rules  [~120 rules]
+    │  Prefix   : Oluwa-, Chi-, Akin-, Oghene-, Ter-, Aondo- …
+    │  Suffix   : -tunde, -wale, -bayo, -seun, -kunle …
+    │  Substring: chukwu, gbenga, gboyega …
+    │  Rules sorted: exact → substring → longer → shorter patterns
+    │  ✓ HIT  → return, confidence 0.60–0.98
+    │  ✗ MISS ↓
+    │
+    ▼  Tier 3 — N-gram Inference
+    │  Builds bigram + trigram frequency profiles per ethnicity
+    │  from the dictionary, then uses cosine similarity to find
+    │  the closest matching ethnic character pattern
+    │  ✓ HIT  → return, confidence 0.10–0.55
+    │  ✗ MISS ↓
+    │
+    ▼  { method: 'unknown', confidence: 0 }
 ```
 
 ---
 
-## Integrating with Bloom / external engines
+## Performance
+
+Benchmarked on Node.js 18, Windows 11:
+
+| Operation           | Speed      | Notes |
+|---------------------|------------|-------|
+| Single `match()`    | **~2.6 µs**| Faster than a function call in most web frameworks |
+| Batch (per name)    | **~2.1 µs**| Array of names processed in one go |
+| `analyzeFullName()` | **~49 µs** | Includes tokenising, per-token match, and aggregation |
+
+No warm-up needed — the dictionary `Map` is built once at `require()` time and reused for every call.
+
+---
+
+## Integrating with Bloom or other engines
 
 ```js
-// bloom-adapter.js
-const { match, analyzeFullName } = require('nigerian-names-predictor');
+// adapters/nigerian-names.js
+const { match, analyzeFullName } = require('name-ethnicity-gender-matcher');
 
 /**
- * Called by Bloom when it needs to classify a proposed name.
- * @param {string} name
- * @returns {{ gender: string, ethnicity: string, confidence: number }}
+ * Classify a single proposed name.
+ * Called by Bloom when evaluating a name field.
  */
 function classifyName(name) {
-  const result = match(name);
-  return {
-    gender:     result.gender,
-    ethnicity:  result.ethnicity,
-    confidence: result.confidence,
-    method:     result.method,
-  };
+  const { gender, ethnicity, confidence, method } = match(name);
+  return { gender, ethnicity, confidence, method };
 }
 
 /**
- * For a complete record with first + last name.
+ * Classify a full name record (firstName + middleName + lastName).
  */
-function classifyFullName(firstName, lastName, middleName = '') {
+function classifyFullName(firstName = '', middleName = '', lastName = '') {
   const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
-  return analyzeFullName(fullName);
+  const { overallGender, overallEthnicity, confidence } = analyzeFullName(fullName);
+  return { gender: overallGender, ethnicity: overallEthnicity, confidence };
 }
 
 module.exports = { classifyName, classifyFullName };
@@ -235,45 +303,53 @@ module.exports = { classifyName, classifyFullName };
 
 ## Extending the dictionary
 
-Add names to the appropriate file in `src/data/`:
+All names live in plain JavaScript files inside `src/data/`. Adding a new name is one line:
 
 ```js
-// src/data/yoruba.js
+// src/data/igbo.js
 module.exports = {
-  // existing entries...
-  oluwadamilola: ['M', 1.00],   // new entry
-  ayomikun:      ['M', 1.00],
+  // ... existing entries ...
+  somtochukwu: ['M', 1.00],  // praise God with me  ← new line
+  uzoamaka:    ['F', 1.00],  // the road is beautiful
 };
 ```
 
-Then re-run `node test/matcher.test.js` to verify nothing broke.
+**Format:** `name (lowercase): ['M'|'F'|'U', confidence]`
+
+After adding names, run the tests to confirm nothing broke:
+
+```bash
+npm test
+```
+
+The master dictionary picks up every entry automatically on the next `require()` — no registration step needed.
 
 ---
 
-## Performance
+## Running tests & benchmarks
 
-Measured on Node.js 18 (Windows 11, mid-range laptop):
+```bash
+# Run the full test suite (48 assertions)
+npm test
 
-| Operation         | Speed     |
-|-------------------|-----------|
-| Single `match()`  | ~3.6 µs   |
-| Batch per name    | ~1.7 µs   |
-| `analyzeFullName` | ~51 µs    |
-
-No warm-up needed — the dictionary is a plain `Map`, loaded once at `require()` time.
+# Run the performance benchmark
+npm run benchmark
+```
 
 ---
 
-## Roadmap / Contributing
+## Roadmap
 
-- [ ] Add more names (target: 5,000+)
-- [ ] Add Genderize.io / NamSor API fallback for very rare names
-- [ ] TensorFlow.js / ONNX lightweight model as Tier 4
-- [ ] Browser ESM bundle (`index.mjs`)
-- [ ] TypeScript type declarations (`index.d.ts`)
+- [ ] Grow dictionary to 5,000+ names
+- [ ] Add Genderize.io / NamSor API as optional Tier 4 fallback for very rare names
+- [ ] Lightweight TensorFlow.js / ONNX model trained on labeled Nigerian names dataset
+- [ ] Browser-compatible ESM bundle (`index.mjs`)
+- [x] TypeScript type declarations (`index.d.ts`) ✅
 
 ---
 
 ## License
 
-MIT
+MIT © 2025 Venson
+
+This library is free to use, copy, modify, and distribute — including in commercial products — as long as the original copyright notice is retained. See [LICENSE](./LICENSE) for the full text.
