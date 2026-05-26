@@ -272,7 +272,7 @@ No warm-up needed — the dictionary `Map` is built once at `require()` time and
 
 ---
 
-## Integrating with Bloom or other engines
+## Integrating with other engines
 
 ```js
 // adapters/nigerian-names.js
