@@ -1,0 +1,9 @@
+# Files to EXCLUDE from the published NPM package
+# (keeps the download small — only src/ and README ship)
+
+test/
+*.test.js
+*.bench.js
+benchmark.js
+.git/
+.gitignore

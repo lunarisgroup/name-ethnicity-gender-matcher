@@ -1,0 +1,48 @@
+{
+  "name": "nigerian-names-predictor",
+  "version": "1.0.0",
+  "description": "Fast, accurate Nigerian name matcher — returns gender, ethnicity, and confidence level for any Nigerian first/last/middle name.",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./src/index.js"
+    }
+  },
+  "files": [
+    "src/",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "nigeria",
+    "nigerian",
+    "names",
+    "gender",
+    "ethnicity",
+    "yoruba",
+    "igbo",
+    "hausa",
+    "efik",
+    "ijaw",
+    "edo",
+    "tiv",
+    "name-prediction",
+    "africa"
+  ],
+  "author": "Venson <vensonlala@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "scripts": {
+    "test": "node test/matcher.test.js",
+    "benchmark": "node test/benchmark.js",
+    "prepublishOnly": "node test/matcher.test.js"
+  }
+}
