@@ -73,6 +73,15 @@ module.exports = {
   akinwande:     ['M', 1.00],  // valor comes back
   akinwunmi:     ['M', 1.00],  // valor is desirable
 
+  // ── Anu- (Mercy) lineage ────────────────────────────────────────────────
+  anu:           ['F', 1.00],  // Mercy
+  aanu:          ['F', 1.00],  // Mercy
+  aanudara:      ['F', 1.00],  // Mercy is good
+  aanuoluwa:     ['F', 1.00],  // God's mercy
+  aanuoluwabomi: ['F', 1.00],  // I am covered/protected by God's mercy
+  aanuoluwakiisi:['F', 1.00],  // God's mercy never fades
+  aanuoluwakiitan:['F', 1.00], // God's mercy never ends
+  aanuoluwapo:   ['F', 1.00],  // God's mercy is abundant 
   // ── AYO- (joy) lineage ─────────────────────────────────────────────────
   ayo:           ['U', 0.80],  // joy
   ayobami:       ['M', 0.90],  // joy gives me love
@@ -219,6 +228,7 @@ module.exports = {
 
   // ── S ─────────────────────────────────────────────────────────────────
   seun:          ['M', 0.90],  // praise (God)
+  segun:         ['M', 1.00],  // victory
   shade:         ['F', 0.90],
   shola:         ['U', 0.85],  // wealth finds me
   sola:          ['U', 0.85],  // wealth is God

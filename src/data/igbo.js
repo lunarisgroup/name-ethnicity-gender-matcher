@@ -18,6 +18,19 @@
 'use strict';
 
 module.exports = {
+  // __ A___________________________________________________________________
+  abuchi:        ['M', 1.00],  // Song of God
+  achalugo:      ['F', 1.00],  // The home of an eagle. The home of honour/greatness.
+  adindu:        ['M', 1.00],
+  afamefuna:     ['M', 1.00],
+  agha:          ['M', 1.00],  // War
+  Agu:           ['M', 1.00],
+  ahumma:        ['F', 1.00],
+  ahunma:        ['F', 1.00],
+  ahunna:        ['M', 1.00],
+  akachukwu:     ['M', 1.00],
+  akachi:        ['F', 1.00],
+  
   // ── CHI- (personal deity / God) ────────────────────────────────────────
   chibuike:      ['M', 1.00],  // God is strength
   chibuzo:       ['M', 1.00],  // God leads the way
@@ -32,7 +45,9 @@ module.exports = {
   chigozie:      ['M', 0.90],  // God has blessed (also female)
   chijindu:      ['M', 1.00],  // God holds life
   chijioke:      ['M', 1.00],  // God gives talent
+  chika:         ['U', 1.00],  // God is bigger
   chikaodili:    ['U', 0.85],  // God is the most beautiful
+
   chike:         ['M', 1.00],  // God's power
   chikodi:       ['M', 1.00],  // God has a plan
   chikwuemeka:   ['M', 1.00],  // God has done great things
@@ -115,9 +130,15 @@ module.exports = {
   // ── ADA- (first daughter) ─────────────────────────────────────────────
   ada:           ['F', 0.85],  // first daughter
   adaeze:        ['F', 1.00],  // daughter of the king / princess
+  adaku:         ['F', 1.00],  // The daughter of wealth
+  adamma:        ['F', 1.00],  // The daughter of beauty.
   adaora:        ['F', 1.00],  // daughter of the people
   adanna:        ['F', 1.00],  // father's daughter
-
+  adannaya:      ['F', 1.00],  // The first daughter of her father
+  adaobi:        ['F', 1.00],  // 1. Daughter of a chief/king 2. Princess. 3. A daughter birthed in a kindred and named as a symbol of its unison.
+  adaolisa:      ['F', 1.00],
+  adaoma:        ['F', 1.00],
+  adaugo:        ['F', 1.00],
   // ── EMEKA / EBUKA ─────────────────────────────────────────────────────
   emeka:         ['M', 1.00],  // short for Chukwuemeka
   ebuka:         ['M', 1.00],  // greatness (Igbo: "ibu ukwu")
@@ -131,6 +152,7 @@ module.exports = {
   ugonma:        ['F', 1.00],  // beautiful eagle
   uloma:         ['F', 1.00],  // beautiful home
   uloaku:        ['F', 1.00],  // home of wealth
+  uzoamaka:      ['F', 1.00],
   uzoma:         ['M', 0.90],  // good road / way (also female)
 
   // ── MISC. IGBO ────────────────────────────────────────────────────────
