@@ -1,13 +1,17 @@
 /**
  * Core matching engine.
  *
- * Three-tier pipeline:
+ * Four-tier pipeline:
  *   1. Dictionary lookup    — O(1) Map.get, highest accuracy
  *   2. Pattern matching     — rule-based prefix/suffix/substring rules
  *   3. N-gram inference     — character-level similarity, lowest confidence
+ *   4. External API         — Genderize.io / NamSor (optional, async, opt-in)
  *
- * Each tier returns a { ethnicity, gender, confidence } triple.
- * The result is enriched with metadata and returned to the caller.
+ * The synchronous API (match / matchBatch / analyzeFullName / suggest) uses only
+ * Tiers 1–3 and is fully backward-compatible.
+ *
+ * The async API (matchAsync / matchBatchAsync / analyzeFullNameAsync) adds Tier 4
+ * after you call configureTier4(options) once at startup.
  */
 
 'use strict';
@@ -24,6 +28,11 @@ const TRIE = new Trie();
 for (const [name, entry] of MASTER) {
   TRIE.insert(name, entry);
 }
+
+// ── Tier 4 singleton (set via configureTier4) ────────────────────────────
+
+/** @type {import('./core/external-api').ExternalApiClient|null} */
+let _tier4Client = null;
 
 // ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -109,6 +118,25 @@ function match(name) {
       alternatives: [],
     };
   }
+
+  // Multi-word input (e.g. 'Elizabeth John') — delegate to analyzeFullName
+  // so each token is looked up independently instead of being concatenated.
+  if (/\s/.test(name.trim())) {
+    const fa       = analyzeFullName(name);
+    const dominant = fa.components.reduce(
+      (best, c) => (!best || c.confidence > best.confidence ? c : best), null
+    );
+    return {
+      name,
+      normalized:   fa.components.map((c) => c.normalized).join(' '),
+      gender:       fa.overallGender,
+      ethnicity:    fa.overallEthnicity,
+      confidence:   fa.confidence,
+      method:       dominant ? dominant.method : 'unknown',
+      alternatives: [],
+    };
+  }
+
   const norm   = normalize(name);
   const result = _lookup(norm);
   return { name, ...result };
@@ -126,7 +154,7 @@ function matchBatch(names) {
 }
 
 /**
- * Analyze a full name string (e.g. "Oluwasegun Adeyemi Chukwuemeka").
+ * Analyze a full name string (e.g. "Oluwasegun Adeyemi Chukwuemeka") — synchronous.
  * Each space/hyphen-separated token is matched independently;
  * the overall result aggregates across all tokens.
  *
@@ -150,15 +178,208 @@ function analyzeFullName(fullName) {
     return { name: tok, ...result };
   });
 
-  // ── Aggregate ethnicity across components ────────────────────────────
-  // Weighted vote: each component contributes (confidence × weight)
-  // Dictionary results carry full weight; pattern = 0.8; ngram = 0.5
-  const METHOD_WEIGHT = { dictionary: 1.0, pattern: 0.8, ngram: 0.5, unknown: 0 };
-  const ethnicVotes   = new Map(); // ethnicity → accumulated weight
+  return _aggregate(fullName, components);
+}
 
+// ── Tier 4 configuration ────────────────────────────────────────────────────
+
+/**
+ * Configure the optional Tier 4 external API fallback.
+ * Call this once at startup before using any *Async functions.
+ * Pass `null` (or call with no argument) to disable Tier 4.
+ *
+ * @param {import('./index').Tier4Config|null} [options]
+ *
+ * @example
+ * // Genderize.io only (free, no key needed):
+ * configureTier4({ providers: ['genderize'] });
+ *
+ * // NamSor only (requires API key):
+ * configureTier4({ providers: ['namsor'], namsor: { apiKey: process.env.NAMSOR_KEY } });
+ *
+ * // Both — try genderize first, fall back to NamSor:
+ * configureTier4({
+ *   providers: ['genderize', 'namsor'],
+ *   namsor: { apiKey: process.env.NAMSOR_KEY },
+ *   cache: true,
+ *   cacheFile: './.cache/tier4.json',
+ *   triggerBelowConfidence: 0.40,
+ * });
+ *
+ * // Disable:
+ * configureTier4(null);
+ */
+function configureTier4(options) {
+  if (options == null) {
+    _tier4Client = null;
+    return;
+  }
+  const { ExternalApiClient } = require('./core/external-api');
+  _tier4Client = new ExternalApiClient(options);
+}
+
+// ── Merge helper ────────────────────────────────────────────────────────────
+
+/**
+ * Merge a Tier 4 API result into a local-tier result.
+ *
+ * Rules:
+ *   • gender     → use API value when non-null (main Tier 4 signal)
+ *   • ethnicity  → keep local value when available; fall back to API value
+ *   • confidence → use API confidence
+ *   • method     → 'api:genderize' | 'api:namsor'
+ *
+ * @param {Object} localResult
+ * @param {import('./core/external-api').Tier4ApiResult} apiResult
+ * @returns {Object}
+ */
+function _mergeTier4(localResult, apiResult) {
+  return {
+    ...localResult,
+    gender:     apiResult.gender !== null ? apiResult.gender : localResult.gender,
+    ethnicity:  localResult.ethnicity || apiResult.ethnicity,
+    confidence: apiResult.confidence,
+    method:     `api:${apiResult.provider}`,
+  };
+}
+
+// ── Public async API (Tiers 1–4) ────────────────────────────────────────────
+
+/**
+ * Match a single name — asynchronous version that adds Tier 4 external API lookup.
+ * Falls back to the synchronous result if Tier 4 is not configured or fails.
+ *
+ * @param {string} name
+ * @returns {Promise<import('./index').MatchResult>}
+ *
+ * @example
+ * configureTier4({ providers: ['genderize'] });
+ * const result = await matchAsync('Xylvia');
+ * // → { gender: 'F', confidence: 0.87, method: 'api:genderize', ... }
+ */
+async function matchAsync(name) {
+  const syncResult = match(name);
+
+  if (!_tier4Client || !_tier4Client.shouldTrigger(syncResult)) {
+    return syncResult;
+  }
+
+  const norm = syncResult.normalized;
+  if (!norm) return syncResult;
+
+  const apiResult = await _tier4Client.query(norm);
+  if (!apiResult) return syncResult;
+
+  return { name, ..._mergeTier4(syncResult, apiResult) };
+}
+
+/**
+ * Match multiple names — asynchronous version with Tier 4.
+ * Only names whose local result triggers Tier 4 will make an API call.
+ * Queries run sequentially to respect provider rate limits.
+ *
+ * @param {string[]} names
+ * @returns {Promise<import('./index').MatchResult[]>}
+ *
+ * @example
+ * const results = await matchBatchAsync(['Oluwasegun', 'Xylvia', 'Nbeke']);
+ */
+async function matchBatchAsync(names) {
+  if (!Array.isArray(names)) throw new TypeError('matchBatchAsync expects an array of strings');
+
+  // Sync pass (Tiers 1–3)
+  const syncResults = names.map(match);
+
+  if (!_tier4Client) return syncResults;
+
+  // Identify which indices need Tier 4
+  const tier4Indices = syncResults
+    .map((r, i) => (_tier4Client.shouldTrigger(r) ? i : -1))
+    .filter((i) => i !== -1);
+
+  if (tier4Indices.length === 0) return syncResults;
+
+  // Apply Tier 4 sequentially (avoids bursting free-tier rate limit)
+  const results = [...syncResults];
+  for (const i of tier4Indices) {
+    const norm = results[i].normalized;
+    if (!norm) continue;
+    const apiResult = await _tier4Client.query(norm);
+    if (apiResult) {
+      results[i] = { name: names[i], ..._mergeTier4(results[i], apiResult) };
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Analyze a full name — asynchronous version with Tier 4 applied per-token.
+ *
+ * @param {string} fullName
+ * @returns {Promise<import('./index').FullNameAnalysis>}
+ *
+ * @example
+ * const fa = await analyzeFullNameAsync('Alhaji Musa Xylpha Garba');
+ * // → { overallEthnicity: 'Hausa', overallGender: 'M', confidence: ..., components: [...] }
+ */
+async function analyzeFullNameAsync(fullName) {
+  if (typeof fullName !== 'string' || !fullName.trim()) {
+    return {
+      fullName:         fullName || '',
+      components:       [],
+      overallEthnicity: null,
+      overallGender:    null,
+      confidence:       0,
+    };
+  }
+
+  const tokens = tokenize(fullName);
+
+  // Sync pass (Tiers 1–3)
+  let components = tokens.map((tok) => ({ name: tok, ..._lookup(tok) }));
+
+  // Tier 4 pass (sequential)
+  if (_tier4Client) {
+    for (let i = 0; i < components.length; i++) {
+      const comp = components[i];
+      if (!_tier4Client.shouldTrigger(comp)) continue;
+      const apiResult = await _tier4Client.query(comp.normalized);
+      if (apiResult) {
+        components[i] = { name: comp.name, ..._mergeTier4(comp, apiResult) };
+      }
+    }
+  }
+
+  return _aggregate(fullName, components);
+}
+
+// ── Shared aggregation logic ────────────────────────────────────────────────
+
+/**
+ * Aggregate an array of per-token MatchResults into a FullNameAnalysis.
+ * Shared by both the sync and async analyzeFullName* paths.
+ *
+ * @param {string}   fullName
+ * @param {Object[]} components
+ * @returns {import('./index').FullNameAnalysis}
+ */
+function _aggregate(fullName, components) {
+  // Weighted vote: each component contributes (confidence × weight)
+  // Dictionary = 1.0, pattern = 0.8, ngram = 0.5, api = 0.7, unknown = 0
+  const METHOD_WEIGHT = { dictionary: 1.0, pattern: 0.8, ngram: 0.5, unknown: 0 };
+
+  function getWeight(method) {
+    if (METHOD_WEIGHT[method] !== undefined) return METHOD_WEIGHT[method];
+    if (typeof method === 'string' && method.startsWith('api:')) return 0.7;
+    return 0;
+  }
+
+  // ── Aggregate ethnicity ──────────────────────────────────────────────
+  const ethnicVotes = new Map(); // ethnicity → accumulated weight
   for (const comp of components) {
     if (!comp.ethnicity) continue;
-    const w = METHOD_WEIGHT[comp.method] * comp.confidence;
+    const w = getWeight(comp.method) * comp.confidence;
     ethnicVotes.set(comp.ethnicity, (ethnicVotes.get(comp.ethnicity) || 0) + w);
   }
 
@@ -171,24 +392,30 @@ function analyzeFullName(fullName) {
     }
   }
 
-  // ── Aggregate gender across components ───────────────────────────────
+  // ── Aggregate gender ─────────────────────────────────────────────────
   const genderVotes = { M: 0, F: 0, U: 0 };
   for (const comp of components) {
     if (!comp.gender) continue;
-    const w = METHOD_WEIGHT[comp.method] * comp.confidence;
+    const w = getWeight(comp.method) * comp.confidence;
     genderVotes[comp.gender] = (genderVotes[comp.gender] || 0) + w;
   }
-  let overallGender = null;
-  const maxGender = Math.max(genderVotes.M, genderVotes.F, genderVotes.U);
+
+  let overallGender   = null;
+  const maxGender     = Math.max(genderVotes.M, genderVotes.F, genderVotes.U);
   if (maxGender > 0) {
-    if (genderVotes.M === maxGender) overallGender = 'M';
-    else if (genderVotes.F === maxGender) overallGender = 'F';
-    else overallGender = 'U';
+    // When tied, first token (given name) is the tiebreaker
+    const topGenders    = ['M', 'F', 'U'].filter((g) => genderVotes[g] === maxGender);
+    if (topGenders.length === 1) {
+      overallGender = topGenders[0];
+    } else {
+      const firstDecider = components.find((c) => topGenders.includes(c.gender));
+      overallGender = firstDecider ? firstDecider.gender : topGenders[0];
+    }
   }
 
   // ── Overall confidence ───────────────────────────────────────────────
   const validComps = components.filter((c) => c.confidence > 0);
-  const avgConf = validComps.length
+  const avgConf    = validComps.length
     ? validComps.reduce((s, c) => s + c.confidence, 0) / validComps.length
     : 0;
 
@@ -248,4 +475,16 @@ function suggest(name, topN = 5) {
     .slice(0, topN);
 }
 
-module.exports = { match, matchBatch, analyzeFullName, suggest };
+module.exports = {
+  // Sync (Tiers 1–3)
+  match,
+  matchBatch,
+  analyzeFullName,
+  suggest,
+  // Async (Tiers 1–4)
+  matchAsync,
+  matchBatchAsync,
+  analyzeFullNameAsync,
+  // Tier 4 setup
+  configureTier4,
+};

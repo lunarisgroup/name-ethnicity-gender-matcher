@@ -1,6 +1,6 @@
 # name-ethnicity-gender-matcher
 
-> Fast, accurate Nigerian name matcher — given any first, last, or middle name, returns the **gender**, **ethnicity**, and a **confidence score**. No internet connection, no AI API, no dependencies.
+> Fast, accurate Nigerian name matcher — given any first, last, or middle name, returns the **gender**, **ethnicity**, and a **confidence score**. Works offline; an optional async Tier 4 API fallback catches anything that slips through.
 
 ---
 
@@ -8,10 +8,10 @@
 
 | | |
 |---|---|
-| 📚 **757 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 9 more groups |
+| 📚 **868 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 11 more groups |
 | ⚡ **~2.6 µs per lookup** | Plain `Map` lookup — faster than a database round-trip |
 | 🔗 **Zero dependencies** | Pure Node.js, no `npm install` overhead |
-| 🧠 **3-tier fallback** | Dictionary → Pattern rules → N-gram inference |
+| 🧠 **4-tier fallback** | Dictionary → Pattern rules → N-gram → Genderize.io / NamSor |
 | 🏷️ **TypeScript ready** | Ships with `index.d.ts` type declarations |
 | ✅ **48 tests** | Run `npm test` to verify everything works |
 
@@ -56,7 +56,12 @@ match('Oluwasegun');
 
 match('Chioma');     // { gender: 'F', ethnicity: 'Igbo',  confidence: 1 }
 match('Hauwa');      // { gender: 'F', ethnicity: 'Hausa', confidence: 1 }
-match('Bassey');     // { gender: 'M', ethnicity: 'Efik',  confidence: 0.95 }
+match('Sebastine');  // { gender: 'M', ethnicity: 'Other', confidence: 0.9 }
+
+// ── Multi-word input is handled correctly ─────────────────────
+match('Elizabeth John');
+// { gender: 'F', ethnicity: 'Other', confidence: 0.9, method: 'dictionary' }
+// (each token is matched independently — no concatenation)
 
 // ── Names not in dictionary — matched by pattern rules ────────
 match('Oluwakayode'); // { gender: 'U', ethnicity: 'Yoruba', confidence: 0.96, method: 'pattern' }
@@ -78,10 +83,66 @@ analyzeFullName('Alhaji Musa Usman Garba');
 analyzeFullName('Chidinma Adaeze Okafor');
 // { overallEthnicity: 'Igbo', overallGender: 'F', confidence: 1 }
 
+// Gender tie-break: when votes are equal, the first (given) name decides
+analyzeFullName('Ruth John');
+// { overallGender: 'F', ... }   ← Ruth is first
+
+analyzeFullName('John Ruth');
+// { overallGender: 'M', ... }   ← John is first
+
 // ── Fuzzy suggest — "did you mean?" for typos ────────────────
 suggest('Oluwasegn');
 // [{ name: 'oluwasegun', distance: 1, entry: { gender: 'M', ethnicity: 'Yoruba' } }, ...]
 ```
+
+---
+
+## Tier 4 — Async API (Genderize.io / NamSor)
+
+For names that are too rare or foreign for the local tiers to resolve, the library can fall back to an external API. **Opt-in only — the sync API is unchanged.**
+
+```js
+const { configureTier4, matchAsync, matchBatchAsync, analyzeFullNameAsync } =
+  require('name-ethnicity-gender-matcher');
+
+// ── Setup (call once at startup) ──────────────────────────────
+configureTier4({ providers: ['genderize'] });   // free, no key needed
+// configureTier4({ providers: ['namsor'], namsor: { apiKey: process.env.NAMSOR_KEY } });
+// configureTier4(null);  // disable
+
+// ── Single name (async) ───────────────────────────────────────
+const result = await matchAsync('SomeRareName');
+// If local tiers can't resolve it, Genderize.io is queried:
+// { gender: 'F', confidence: 0.87, method: 'api:genderize', ... }
+
+// Known names are NOT sent to the API (zero extra latency):
+await matchAsync('Chioma');
+// { gender: 'F', ethnicity: 'Igbo', confidence: 1, method: 'dictionary' }
+
+// ── Batch (async) — only unknown names trigger API calls ──────
+const results = await matchBatchAsync(['Oluwasegun', 'Xylpha', 'Nbeke']);
+// Oluwasegun → dictionary  (no API call)
+// Xylpha     → api:genderize
+// Nbeke      → api:genderize
+
+// ── Full name (async) ─────────────────────────────────────────
+const fa = await analyzeFullNameAsync('Musa Xylpha Garba');
+// Tier 4 applied per-token, only where needed
+```
+
+### `configureTier4` options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `providers` | `string \| string[]` | `'genderize'` | Provider order: `'genderize'`, `'namsor'`, or both |
+| `genderize.countryId` | `string` | `'NG'` | ISO country code sent to Genderize.io |
+| `genderize.timeout` | `number` | `5000` | Request timeout in ms |
+| `namsor.apiKey` | `string` | — | **Required** when using NamSor |
+| `namsor.timeout` | `number` | `5000` | Request timeout in ms |
+| `cache` | `boolean` | `true` | Cache results in memory |
+| `cacheFile` | `string` | — | Path to JSON file for persistent cache |
+| `triggerOnUnknown` | `boolean` | `true` | Call API when local result is `method: 'unknown'` |
+| `triggerBelowConfidence` | `number` | `0` | Also call API when confidence is below this threshold |
 
 ---
 
@@ -91,6 +152,7 @@ suggest('Oluwasegn');
 |----------------|-------|-----------------|
 | **Yoruba**     | 196   | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
 | **Igbo**       | 122   | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-` |
+| **Other**      | 111   | Cross-ethnic Christian/Biblical names (Ruth, John, Grace, Sebastine…) |
 | **Hausa**      | 104   | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
 | **Efik/Ibibio**| 59    | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
 | **Edo (Bini)** | 54    | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
@@ -99,9 +161,9 @@ suggest('Oluwasegn');
 | **Urhobo**     | 45    | `Oghene-`, Rukevwe, Okiemute, Ejiro |
 | **Kanuri**     | 22    | Shettima, Zanna, Bulama, Grema, Modu |
 | **Igala**      | 16    | Ameh, Ocholi, Onoja, Ogwuche |
-| **Other**      | 37    | Nupe, Berom, Idoma, Ogoni, Tarok, Gbagyi, Jukun |
+| **Nupe/Berom/Idoma/Tarok/…** | 42 | Smaller groups from Kogi, Plateau, Benue, Rivers |
 
-> **Total: 757 names** · 497 male · 223 female · 37 unisex
+> **Total: 868 names** · 569 male · 262 female · 37 unisex
 
 ---
 
@@ -109,7 +171,7 @@ suggest('Oluwasegn');
 
 ### `match(name)` → `MatchResult`
 
-Matches a single name token. Accepts any casing, with or without diacritics.
+Matches a single name token — or a full multi-word name. Accepts any casing, with or without diacritics. When the input contains spaces, each token is matched independently and the results are aggregated (same logic as `analyzeFullName`).
 
 ```ts
 match(name: string): MatchResult
@@ -127,12 +189,14 @@ match(name: string): MatchResult
 
 **`method` values:**
 
-| Method | Meaning |
-|--------|---------|
-| `'dictionary'` | Exact match found in the curated name list |
-| `'pattern'`    | Matched by a prefix/suffix/substring rule (e.g. `Oluwa-` → Yoruba) |
-| `'ngram'`      | Inferred by character n-gram similarity |
-| `'unknown'`    | No match found in any tier |
+| Method | Tier | Meaning |
+|--------|------|---------|
+| `'dictionary'`   | 1 | Exact match found in the curated name list |
+| `'pattern'`      | 2 | Matched by a prefix/suffix/substring rule (e.g. `Oluwa-` → Yoruba) |
+| `'ngram'`        | 3 | Inferred by character n-gram similarity |
+| `'api:genderize'`| 4 | Gender returned by Genderize.io (async only) |
+| `'api:namsor'`   | 4 | Gender returned by NamSor (async only) |
+| `'unknown'`      | — | No match found in any tier |
 
 **Confidence guide:**
 
@@ -141,6 +205,7 @@ match(name: string): MatchResult
 | 0.90 – 1.00 | Dictionary match — very reliable |
 | 0.80 – 0.96 | High-confidence pattern rule |
 | 0.60 – 0.80 | Medium-confidence pattern rule |
+| 0.50 – 0.88 | External API result |
 | 0.10 – 0.55 | N-gram inference — use as a hint only |
 | 0           | Unknown |
 
@@ -159,7 +224,9 @@ matchBatch(['Adeyemi', 'Ngozi', 'Garba', 'Bassey']);
 
 ### `analyzeFullName(fullName)` → `FullNameAnalysis`
 
-Splits a full name on spaces and hyphens, strips titles (`Alhaji`, `Dr`, `Chief`, `Pastor`, `Engr`, etc.), matches each token individually, then aggregates into one overall result using a weighted vote.
+Splits a full name on spaces and hyphens, strips titles (`Alhaji`, `Dr`, `Chief`, `Pastor`, `Engr`, etc.), matches each token individually, then aggregates into one overall result using a **weighted vote**.
+
+**Gender tie-break:** when two or more genders share the same weighted score, the leftmost (given) name wins — it is the strongest gender signal in a Nigerian full name.
 
 ```js
 analyzeFullName('Dr Adebayo Chukwuemeka Okafor');
@@ -169,9 +236,9 @@ analyzeFullName('Dr Adebayo Chukwuemeka Okafor');
 //   overallGender:    'M',
 //   confidence:       0.983,
 //   components: [
-//     { name: 'adebayo',      ethnicity: 'Yoruba', gender: 'M', confidence: 1 },
-//     { name: 'chukwuemeka',  ethnicity: 'Igbo',   gender: 'M', confidence: 1 },
-//     { name: 'okafor',       ethnicity: 'Igbo',   gender: 'M', confidence: 0.95 },
+//     { name: 'adebayo',     ethnicity: 'Yoruba', gender: 'M', confidence: 1 },
+//     { name: 'chukwuemeka', ethnicity: 'Igbo',   gender: 'M', confidence: 1 },
+//     { name: 'okafor',      ethnicity: 'Igbo',   gender: 'M', confidence: 0.95 },
 //   ]
 // }
 ```
@@ -181,7 +248,7 @@ analyzeFullName('Dr Adebayo Chukwuemeka Okafor');
 | `fullName`         | `string`                | Original input |
 | `components`       | `MatchResult[]`         | Per-token results |
 | `overallEthnicity` | `string \| null`        | Winning ethnicity by weighted vote |
-| `overallGender`    | `'M' \| 'F' \| 'U' \| null` | Winning gender by weighted vote |
+| `overallGender`    | `'M' \| 'F' \| 'U' \| null` | Winning gender by weighted vote; first token breaks ties |
 | `confidence`       | `number`                | Average of component confidences |
 
 ---
@@ -207,22 +274,18 @@ Direct read-only access to the full master name map. Useful for bulk lookups or 
 ```js
 const { dictionary } = require('name-ethnicity-gender-matcher');
 
-console.log(dictionary.size);
-// 757
-
-console.log(dictionary.get('oluwasegun'));
-// { gender: 'M', ethnicity: 'Yoruba', confidence: 1 }
-
-// Check if a name exists
-dictionary.has('chioma'); // true
-dictionary.has('john');   // false
+console.log(dictionary.size);       // 868
+dictionary.get('oluwasegun');       // { gender: 'M', ethnicity: 'Yoruba', confidence: 1 }
+dictionary.has('chioma');           // true
+dictionary.has('sebastine');        // true
+dictionary.has('xylzzq');           // false
 ```
 
 ---
 
 ## How it works
 
-Every name passes through three tiers, stopping as soon as a match is found:
+Every name passes through four tiers, stopping as soon as a confident match is found:
 
 ```
 Input: "Oluwakayode"
@@ -232,9 +295,10 @@ Input: "Oluwakayode"
     │  • Lowercase
     │  • Remove non-alpha characters
     │  • Strip titles (Alhaji, Dr, Chief, Pastor …)
+    │  • Split multi-word input into tokens
     │
     ▼  Tier 1 — Dictionary  [O(1) Map lookup]
-    │  757 curated names with gender + ethnicity + confidence
+    │  868 curated names with gender + ethnicity + confidence
     │  ✓ HIT  → return immediately, confidence 0.75–1.00
     │  ✗ MISS ↓
     │
@@ -242,7 +306,6 @@ Input: "Oluwakayode"
     │  Prefix   : Oluwa-, Chi-, Akin-, Oghene-, Ter-, Aondo- …
     │  Suffix   : -tunde, -wale, -bayo, -seun, -kunle …
     │  Substring: chukwu, gbenga, gboyega …
-    │  Rules sorted: exact → substring → longer → shorter patterns
     │  ✓ HIT  → return, confidence 0.60–0.98
     │  ✗ MISS ↓
     │
@@ -251,6 +314,13 @@ Input: "Oluwakayode"
     │  from the dictionary, then uses cosine similarity to find
     │  the closest matching ethnic character pattern
     │  ✓ HIT  → return, confidence 0.10–0.55
+    │  ✗ MISS ↓
+    │
+    ▼  Tier 4 — External API  [async, opt-in]
+    │  Genderize.io (free) or NamSor (paid)
+    │  Only triggered when local result is unknown or low-confidence
+    │  In-memory + optional file cache avoids repeat API calls
+    │  ✓ HIT  → return, confidence 0.50–0.88, method: 'api:genderize'
     │  ✗ MISS ↓
     │
     ▼  { method: 'unknown', confidence: 0 }
@@ -267,6 +337,7 @@ Benchmarked on Node.js 18, Windows 11:
 | Single `match()`    | **~2.6 µs**| Faster than a function call in most web frameworks |
 | Batch (per name)    | **~2.1 µs**| Array of names processed in one go |
 | `analyzeFullName()` | **~49 µs** | Includes tokenising, per-token match, and aggregation |
+| `matchAsync()`      | **~2.6 µs**| No extra latency if Tier 4 is not triggered |
 
 No warm-up needed — the dictionary `Map` is built once at `require()` time and reused for every call.
 
@@ -280,7 +351,6 @@ const { match, analyzeFullName } = require('name-ethnicity-gender-matcher');
 
 /**
  * Classify a single proposed name.
- * Called by Bloom when evaluating a name field.
  */
 function classifyName(name) {
   const { gender, ethnicity, confidence, method } = match(name);
@@ -314,15 +384,23 @@ module.exports = {
 };
 ```
 
-**Format:** `name (lowercase): ['M'|'F'|'U', confidence]`
+Cross-ethnic names (Christian/Biblical, day-of-birth, saint names) go in `src/data/other.js` with the extended format:
+
+```js
+// src/data/other.js
+module.exports = {
+  // ... existing entries ...
+  sebastine: ['M', 0.90, 'Other'],  // Nigerian variant of Sebastian
+};
+```
+
+**Format:** `name (lowercase): ['M'|'F'|'U', confidence]` or `['M'|'F'|'U', confidence, 'EthnicityHint']`
 
 After adding names, run the tests to confirm nothing broke:
 
 ```bash
 npm test
 ```
-
-The master dictionary picks up every entry automatically on the next `require()` — no registration step needed.
 
 ---
 
@@ -341,7 +419,7 @@ npm run benchmark
 ## Roadmap
 
 - [ ] Grow dictionary to 5,000+ names
-- [ ] Add Genderize.io / NamSor API as optional Tier 4 fallback for very rare names
+- [x] Add Genderize.io / NamSor API as optional Tier 4 fallback ✅
 - [ ] Lightweight TensorFlow.js / ONNX model trained on labeled Nigerian names dataset
 - [ ] Browser-compatible ESM bundle (`index.mjs`)
 - [x] TypeScript type declarations (`index.d.ts`) ✅

@@ -182,7 +182,7 @@ assertEquals(r.ethnicity, null, 'empty string → null ethnicity');
 r = match('   ');
 assertEquals(r.ethnicity, null, 'whitespace → null ethnicity');
 
-r = match('John');
+r = match('Clark');
 assertEquals(r.method, 'unknown', 'generic English name → unknown method');
 
 r = match('Ọlụwasẹgun'); // Yoruba with dot-below letters
