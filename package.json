@@ -43,6 +43,7 @@
   "scripts": {
     "test": "node test/matcher.test.js",
     "benchmark": "node test/benchmark.js",
+    "train": "node scripts/train-model.js",
     "prepublishOnly": "node test/matcher.test.js"
   }
 }

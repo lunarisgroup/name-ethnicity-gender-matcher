@@ -129,6 +129,9 @@ module.exports = {
   timothy:       ['M', 0.90, 'Other'],
   benjamin:      ['M', 0.90, 'Other'],
   gabriel:       ['M', 0.90, 'Other'],
+  jesse:         ['M', 0.90, 'Other'],
+  abraham:       ['M', 0.90, 'Other'],
+  isaiah:        ['M', 0.90, 'Other'],
 
   // Biblical female names
   ruth:          ['F', 0.90, 'Other'],
@@ -213,7 +216,7 @@ module.exports = {
   raphael:       ['M', 0.90, 'Other'],
   rapheal:       ['M', 0.90, 'Other'],  // common Nigerian spelling
   vincent:       ['M', 0.90, 'Other'],
-  victor:        ['M', 0.85, 'Other'],
+  victoria:      ['F', 0.85, 'Other'],
   celestine:     ['M', 0.90, 'Other'],
   celestina:     ['F', 0.90, 'Other'],
   augustina:     ['F', 0.90, 'Other'],

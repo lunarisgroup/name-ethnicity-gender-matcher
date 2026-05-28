@@ -183,7 +183,10 @@ r = match('   ');
 assertEquals(r.ethnicity, null, 'whitespace → null ethnicity');
 
 r = match('Clark');
-assertEquals(r.method, 'unknown', 'generic English name → unknown method');
+// ML model attempts a classification, but confidence must stay ≤ ML cap (0.72)
+// and must not be mistakenly labelled as a high-confidence dictionary/pattern hit
+assert(!['dictionary', 'pattern'].includes(r.method), 'non-Nigerian name → not dict/pattern');
+assert(r.confidence <= 0.72, 'non-Nigerian name → confidence ≤ ML cap');
 
 r = match('Ọlụwasẹgun'); // Yoruba with dot-below letters
 assertEquals(r.ethnicity, 'Yoruba', 'Ọlụwasẹgun (with diacritics) → Yoruba');

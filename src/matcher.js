@@ -4,7 +4,7 @@
  * Four-tier pipeline:
  *   1. Dictionary lookup    — O(1) Map.get, highest accuracy
  *   2. Pattern matching     — rule-based prefix/suffix/substring rules
- *   3. N-gram inference     — character-level similarity, lowest confidence
+ *   3. ML model             — trained character-level MLP (falls back to n-gram)
  *   4. External API         — Genderize.io / NamSor (optional, async, opt-in)
  *
  * The synchronous API (match / matchBatch / analyzeFullName / suggest) uses only
@@ -20,6 +20,7 @@ const { normalize, tokenize }   = require('./core/normalizer');
 const { MASTER, AMBIGUOUS }     = require('./data/index');
 const { matchPattern }          = require('./core/pattern-matcher');
 const { inferFromNgrams }       = require('./core/ngram');
+const { predictML }             = require('./core/ml-model');
 const { Trie }                  = require('./core/trie');
 
 // ── Build Trie from master dictionary at startup ─────────────────────────
@@ -74,7 +75,20 @@ function _lookup(norm) {
     };
   }
 
-  // ── Tier 3: N-gram inference ─────────────────────────────────────────
+  // ── Tier 3a: Trained ML model ────────────────────────────────────────
+  const mlResult = predictML(norm);
+  if (mlResult) {
+    return {
+      normalized:   norm,
+      gender:       mlResult.gender,
+      ethnicity:    mlResult.ethnicity,
+      confidence:   mlResult.confidence,
+      method:       'ml',
+      alternatives: [],
+    };
+  }
+
+  // ── Tier 3b: N-gram fallback (used when ml-weights.json is absent) ───
   const ngramResult = inferFromNgrams(norm);
   if (ngramResult) {
     return {
@@ -366,8 +380,8 @@ async function analyzeFullNameAsync(fullName) {
  */
 function _aggregate(fullName, components) {
   // Weighted vote: each component contributes (confidence × weight)
-  // Dictionary = 1.0, pattern = 0.8, ngram = 0.5, api = 0.7, unknown = 0
-  const METHOD_WEIGHT = { dictionary: 1.0, pattern: 0.8, ngram: 0.5, unknown: 0 };
+  // Dictionary = 1.0, pattern = 0.8, ml = 0.7, ngram = 0.5, api = 0.7, unknown = 0
+  const METHOD_WEIGHT = { dictionary: 1.0, pattern: 0.8, ml: 0.7, ngram: 0.5, unknown: 0 };
 
   function getWeight(method) {
     if (METHOD_WEIGHT[method] !== undefined) return METHOD_WEIGHT[method];

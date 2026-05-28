@@ -7,6 +7,7 @@ export type Gender = 'M' | 'F' | 'U';
 export type MatchMethod =
   | 'dictionary'
   | 'pattern'
+  | 'ml'
   | 'ngram'
   | 'api:genderize'
   | 'api:namsor'
