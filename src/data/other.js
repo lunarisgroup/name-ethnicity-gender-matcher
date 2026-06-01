@@ -151,6 +151,12 @@ module.exports = {
   elizabeth:     ['F', 0.90, 'Other'],
   rebecca:       ['F', 0.90, 'Other'],
   leah:          ['F', 0.90, 'Other'],
+  josephine:      ['F', 0.90, 'Other'],
+  hannah:        ['F', 0.90, 'Other'],
+  delilah:       ['F', 0.90, 'Other'],
+  bethany:       ['F', 0.90, 'Other'],
+  magdalene:     ['F', 0.90, 'Other'],
+  salome:        ['F', 0.90, 'Other'],
 
   // Virtue / praise names (pan-Nigerian Christian)
   grace:         ['F', 0.90, 'Other'],
@@ -226,4 +232,25 @@ module.exports = {
   patricia:      ['F', 0.90, 'Other'],
   veronica:      ['F', 0.90, 'Other'],
   virginia:      ['F', 0.90, 'Other'],
+  catherine:     ['F', 0.90, 'Other'],
+  catherina:     ['F', 0.90, 'Other'],  // common Nigerian spelling
+  cecilia:       ['F', 0.90, 'Other'],
+  cecily:        ['F', 0.90, 'Other'],
+  clara:         ['F', 0.90, 'Other'],
+
+  //__________
+  richard:       ['M', 0.90, 'Other'],
+  charles:       ['M', 0.90, 'Other'],
+  charlie:       ['M', 0.90, 'Other'],
+  jimmy:         ['M', 0.90, 'Other'],
+  jasmine:       ['F', 0.90, 'Other'],
+  joyce:         ['F', 0.90, 'Other'],
+  julia:         ['F', 0.90, 'Other'],
+  christopher:   ['M', 0.90, 'Other'],
+  christiana:    ['F', 0.90, 'Other'],
+  christine:     ['F', 0.90, 'Other'],
+  christy:       ['F', 0.90, 'Other'],
+  edwards:       ['M', 0.90, 'Other'],
+  edward:        ['M', 0.90, 'Other'],
+  edwin:         ['M', 0.90, 'Other'],
 };

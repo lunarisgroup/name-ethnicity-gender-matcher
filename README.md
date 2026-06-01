@@ -8,12 +8,12 @@
 
 | | |
 |---|---|
-| 📚 **868 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 11 more groups |
+| 📚 **3,332 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 11 more groups |
 | ⚡ **~2.6 µs per lookup** | Plain `Map` lookup — faster than a database round-trip |
 | 🔗 **Zero dependencies** | Pure Node.js, no `npm install` overhead |
 | 🧠 **4-tier fallback** | Dictionary → Pattern rules → N-gram → Genderize.io / NamSor |
 | 🏷️ **TypeScript ready** | Ships with `index.d.ts` type declarations |
-| ✅ **48 tests** | Run `npm test` to verify everything works |
+| ✅ **49 tests** | Run `npm test` to verify everything works |
 
 ---
 
@@ -150,20 +150,20 @@ const fa = await analyzeFullNameAsync('Musa Xylpha Garba');
 
 | Ethnicity      | Names | Key identifiers |
 |----------------|-------|-----------------|
-| **Yoruba**     | 196   | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
-| **Igbo**       | 122   | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-` |
-| **Other**      | 111   | Cross-ethnic Christian/Biblical names (Ruth, John, Grace, Sebastine…) |
-| **Hausa**      | 104   | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
-| **Efik/Ibibio**| 59    | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
-| **Edo (Bini)** | 54    | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
-| **Tiv**        | 51    | `Ter-`, `Aondo-`, Mwuese, Doosuur, Nguveren |
-| **Ijaw**       | 46    | `Ebi-`, Tonye, Preye, Ibinabo, Warribibo |
-| **Urhobo**     | 45    | `Oghene-`, Rukevwe, Okiemute, Ejiro |
-| **Kanuri**     | 22    | Shettima, Zanna, Bulama, Grema, Modu |
-| **Igala**      | 16    | Ameh, Ocholi, Onoja, Ogwuche |
-| **Nupe/Berom/Idoma/Tarok/…** | 42 | Smaller groups from Kogi, Plateau, Benue, Rivers |
+| **Yoruba**     | 905   | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
+| **Igbo**       | 424   | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-` |
+| **Tiv**        | 313   | `Ter-`, `Aondo-`, Mwuese, Doosuur, Nguveren |
+| **Ijaw**       | 271   | `Ebi-`, Tonye, Preye, Ibinabo, Warribibo |
+| **Efik/Ibibio**| 230   | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
+| **Urhobo**     | 219   | `Oghene-`, Rukevwe, Okiemute, Ejiro |
+| **Edo (Bini)** | 192   | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
+| **Kanuri**     | 164   | Shettima, Zanna, Bulama, Grema, Modu |
+| **Other**      | 139   | Cross-ethnic Christian/Biblical names (Ruth, John, Grace, Sebastine…) |
+| **Hausa**      | 420   | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
+| **Igala**      | 15    | Ameh, Ocholi, Onoja, Ogwuche |
+| **Nupe/Berom/Idoma/Tarok/…** | 41 | Smaller groups from Kogi, Plateau, Benue, Rivers |
 
-> **Total: 868 names** · 569 male · 262 female · 37 unisex
+> **Total: 3,332 names** · 2,320 male · 925 female · 87 unisex
 
 ---
 
@@ -274,7 +274,7 @@ Direct read-only access to the full master name map. Useful for bulk lookups or 
 ```js
 const { dictionary } = require('name-ethnicity-gender-matcher');
 
-console.log(dictionary.size);       // 868
+console.log(dictionary.size);       // 3332
 dictionary.get('oluwasegun');       // { gender: 'M', ethnicity: 'Yoruba', confidence: 1 }
 dictionary.has('chioma');           // true
 dictionary.has('sebastine');        // true
@@ -298,7 +298,7 @@ Input: "Oluwakayode"
     │  • Split multi-word input into tokens
     │
     ▼  Tier 1 — Dictionary  [O(1) Map lookup]
-    │  868 curated names with gender + ethnicity + confidence
+    │  3,332 curated names with gender + ethnicity + confidence
     │  ✓ HIT  → return immediately, confidence 0.75–1.00
     │  ✗ MISS ↓
     │
@@ -407,7 +407,7 @@ npm test
 ## Running tests & benchmarks
 
 ```bash
-# Run the full test suite (48 assertions)
+# Run the full test suite (49 assertions)
 npm test
 
 # Run the performance benchmark
