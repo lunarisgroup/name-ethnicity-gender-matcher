@@ -1,6 +1,6 @@
 # name-ethnicity-gender-matcher
 
-> Fast, accurate Nigerian name matcher — given any first, last, or middle name, returns the **gender**, **ethnicity**, and a **confidence score**. Works offline; an optional async Tier 4 API fallback catches anything that slips through.
+> Fast, accurate Nigerian name matcher — given any first, last, or middle name, returns the **gender**, **ethnicity**, and a **confidence score**. Works fully offline; an optional async Tier 4 API fallback catches anything that slips through.
 
 ---
 
@@ -10,8 +10,9 @@
 |---|---|
 | 📚 **3,332 curated names** | Yoruba, Igbo, Hausa, Efik, Ijaw, Edo, Urhobo, Tiv, Kanuri + 11 more groups |
 | ⚡ **~2.6 µs per lookup** | Plain `Map` lookup — faster than a database round-trip |
-| 🔗 **Zero dependencies** | Pure Node.js, no `npm install` overhead |
-| 🧠 **4-tier fallback** | Dictionary → Pattern rules → N-gram → Genderize.io / NamSor |
+| 🔗 **Zero runtime dependencies** | Pure Node.js, no `npm install` overhead |
+| 🧠 **4-tier fallback** | Dictionary → Pattern rules → Trained MLP model → Genderize.io / NamSor |
+| 🤖 **Trained ML model** | Pure-JS 373-feature MLP — 100% ethnicity accuracy on training set |
 | 🏷️ **TypeScript ready** | Ships with `index.d.ts` type declarations |
 | ✅ **49 tests** | Run `npm test` to verify everything works |
 
@@ -66,6 +67,9 @@ match('Elizabeth John');
 // ── Names not in dictionary — matched by pattern rules ────────
 match('Oluwakayode'); // { gender: 'U', ethnicity: 'Yoruba', confidence: 0.96, method: 'pattern' }
 match('Chibuogwu');   // { gender: 'M', ethnicity: 'Igbo',   confidence: 0.95, method: 'pattern' }
+
+// ── Rare names — resolved by the trained ML model ────────────
+match('Fatimah');     // { gender: 'F', ethnicity: 'Hausa', confidence: 0.72, method: 'ml' }
 
 // ── Batch — match multiple names at once ──────────────────────
 matchBatch(['Abubakar', 'Ngozi', 'Mwuese', 'Tonye', 'Shettima']);
@@ -148,20 +152,19 @@ const fa = await analyzeFullNameAsync('Musa Xylpha Garba');
 
 ## Ethnic groups covered
 
-| Ethnicity      | Names | Key identifiers |
-|----------------|-------|-----------------|
-| **Yoruba**     | 905   | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
-| **Igbo**       | 424   | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-` |
-| **Tiv**        | 313   | `Ter-`, `Aondo-`, Mwuese, Doosuur, Nguveren |
-| **Ijaw**       | 271   | `Ebi-`, Tonye, Preye, Ibinabo, Warribibo |
-| **Efik/Ibibio**| 230   | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
-| **Urhobo**     | 219   | `Oghene-`, Rukevwe, Okiemute, Ejiro |
-| **Edo (Bini)** | 192   | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
-| **Kanuri**     | 164   | Shettima, Zanna, Bulama, Grema, Modu |
-| **Other**      | 139   | Cross-ethnic Christian/Biblical names (Ruth, John, Grace, Sebastine…) |
-| **Hausa**      | 420   | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
-| **Igala**      | 15    | Ameh, Ocholi, Onoja, Ogwuche |
-| **Nupe/Berom/Idoma/Tarok/…** | 41 | Smaller groups from Kogi, Plateau, Benue, Rivers |
+| Ethnicity | Names | Key identifiers |
+|---|---|---|
+| **Yoruba** | 905 | `Oluwa-`, `Ade-`, `Akin-`, `Anu-`, `-tunde`, `-wale`, `-bayo`, `-seun` |
+| **Hausa / Fulani** | 420 | Arabic-origin Islamic names, `Dan-`, calendar names (Laraba, Talatu) |
+| **Igbo** | 424 | `Chi-`, `Chukwu-`, `Ada-`, `Obi-`, `Nna-`, `Eze-`, `Ugo-`, `Udo-` |
+| **Tiv** | 313 | `Ter-`, `Aondo-`, Mwuese, Doosuur, Nguveren |
+| **Ijaw** | 271 | `Ebi-`, `Tamuno-`, Tonye, Preye, Ibinabo, Warribibo |
+| **Efik / Ibibio** | 229 | Bassey, Okon, Akpan, Inyang, Mfon, Uduak, Ekanem |
+| **Urhobo** | 219 | `Oghene-`, Rukevwe, Okiemute, Ejiro, Efemena |
+| **Edo (Bini)** | 192 | `Osa-`, `Omor-`, `Ehi-`, Itohan, Esosa, Etinosa |
+| **Kanuri** | 164 | Shettima, Zanna, Bulama, Grema, Modu, Babagana |
+| **Other** | 139 | Cross-ethnic Christian/Biblical names (Ruth, John, Grace, Sebastine…) |
+| **Igala / Nupe / Berom / Idoma / Ogoni / …** | 56 | Smaller groups from Kogi, Plateau, Benue, Rivers |
 
 > **Total: 3,332 names** · 2,320 male · 925 female · 87 unisex
 
@@ -177,37 +180,39 @@ Matches a single name token — or a full multi-word name. Accepts any casing, w
 match(name: string): MatchResult
 ```
 
-| Field          | Type                    | Description |
-|----------------|-------------------------|-------------|
-| `name`         | `string`                | Original input as provided |
-| `normalized`   | `string`                | Lowercase, diacritics removed |
-| `gender`       | `'M' \| 'F' \| 'U' \| null` | Male / Female / Unisex |
-| `ethnicity`    | `string \| null`        | e.g. `'Yoruba'`, `'Igbo'`, `'Hausa'` |
-| `confidence`   | `number`                | 0.0 – 1.0 (see table below) |
-| `method`       | `string`                | How the result was found |
-| `alternatives` | `Array`                 | Other possible ethnicities for ambiguous names |
+| Field | Type | Description |
+|---|---|---|
+| `name` | `string` | Original input as provided |
+| `normalized` | `string` | Lowercase, diacritics removed |
+| `gender` | `'M' \| 'F' \| 'U' \| null` | Male / Female / Unisex |
+| `ethnicity` | `string \| null` | e.g. `'Yoruba'`, `'Igbo'`, `'Hausa'` |
+| `confidence` | `number` | 0.0 – 1.0 (see table below) |
+| `method` | `string` | How the result was found (see table below) |
+| `alternatives` | `Array` | Other possible ethnicities for ambiguous names |
 
 **`method` values:**
 
 | Method | Tier | Meaning |
-|--------|------|---------|
-| `'dictionary'`   | 1 | Exact match found in the curated name list |
-| `'pattern'`      | 2 | Matched by a prefix/suffix/substring rule (e.g. `Oluwa-` → Yoruba) |
-| `'ngram'`        | 3 | Inferred by character n-gram similarity |
-| `'api:genderize'`| 4 | Gender returned by Genderize.io (async only) |
-| `'api:namsor'`   | 4 | Gender returned by NamSor (async only) |
-| `'unknown'`      | — | No match found in any tier |
+|---|---|---|
+| `'dictionary'` | 1 | Exact match in the curated name list |
+| `'pattern'` | 2 | Matched by a prefix / suffix / substring rule |
+| `'ml'` | 3a | Predicted by the trained MLP model (373 features) |
+| `'ngram'` | 3b | Inferred by character n-gram similarity (fallback when weights absent) |
+| `'api:genderize'` | 4 | Gender returned by Genderize.io (async only) |
+| `'api:namsor'` | 4 | Gender returned by NamSor (async only) |
+| `'unknown'` | — | No match found in any tier |
 
 **Confidence guide:**
 
-| Range       | Meaning |
-|-------------|---------|
-| 0.90 – 1.00 | Dictionary match — very reliable |
+| Range | Meaning |
+|---|---|
+| 0.90 – 1.00 | Dictionary match — highly reliable |
 | 0.80 – 0.96 | High-confidence pattern rule |
 | 0.60 – 0.80 | Medium-confidence pattern rule |
+| 0.56 – 0.72 | Trained ML model prediction |
 | 0.50 – 0.88 | External API result |
 | 0.10 – 0.55 | N-gram inference — use as a hint only |
-| 0           | Unknown |
+| 0 | Unknown |
 
 ---
 
@@ -243,13 +248,13 @@ analyzeFullName('Dr Adebayo Chukwuemeka Okafor');
 // }
 ```
 
-| Field              | Type                    | Description |
-|--------------------|-------------------------|-------------|
-| `fullName`         | `string`                | Original input |
-| `components`       | `MatchResult[]`         | Per-token results |
-| `overallEthnicity` | `string \| null`        | Winning ethnicity by weighted vote |
-| `overallGender`    | `'M' \| 'F' \| 'U' \| null` | Winning gender by weighted vote; first token breaks ties |
-| `confidence`       | `number`                | Average of component confidences |
+| Field | Type | Description |
+|---|---|---|
+| `fullName` | `string` | Original input |
+| `components` | `MatchResult[]` | Per-token results (titles excluded) |
+| `overallEthnicity` | `string \| null` | Winning ethnicity by weighted vote |
+| `overallGender` | `'M' \| 'F' \| 'U' \| null` | Winning gender; first token breaks ties |
+| `confidence` | `number` | Average of component confidences |
 
 ---
 
@@ -303,17 +308,21 @@ Input: "Oluwakayode"
     │  ✗ MISS ↓
     │
     ▼  Tier 2 — Pattern Rules  [~120 rules]
-    │  Prefix   : Oluwa-, Chi-, Akin-, Oghene-, Ter-, Aondo- …
+    │  Prefix   : Oluwa-, Chi-, Akin-, Oghene-, Ter-, Aondo-, Tamuno- …
     │  Suffix   : -tunde, -wale, -bayo, -seun, -kunle …
     │  Substring: chukwu, gbenga, gboyega …
     │  ✓ HIT  → return, confidence 0.60–0.98
     │  ✗ MISS ↓
     │
-    ▼  Tier 3 — N-gram Inference
-    │  Builds bigram + trigram frequency profiles per ethnicity
-    │  from the dictionary, then uses cosine similarity to find
-    │  the closest matching ethnic character pattern
-    │  ✓ HIT  → return, confidence 0.10–0.55
+    ▼  Tier 3 — Trained MLP Model
+    │  Pure-JS multi-task neural network (no TensorFlow / Brain.js)
+    │  373-dim feature vector: char n-grams · char freq · first/last char
+    │    one-hot · prefix pairs · suffix pairs · phonetic flags
+    │  Two output heads: ethnicity (15 classes) · gender (3 classes)
+    │  Trained to 100% ethnicity accuracy on 870 labeled names
+    │  Confidence capped at 0.72 (sits above n-gram, below pattern)
+    │  Falls back to n-gram cosine similarity when weights file is absent
+    │  ✓ HIT  → return, confidence 0.56–0.72, method: 'ml'
     │  ✗ MISS ↓
     │
     ▼  Tier 4 — External API  [async, opt-in]
@@ -328,18 +337,62 @@ Input: "Oluwakayode"
 
 ---
 
+## The ML model
+
+The Tier 3 model is a lightweight multi-layer perceptron trained entirely in pure JavaScript — no TensorFlow.js, Brain.js, or ONNX runtime required at runtime.
+
+### Architecture
+
+```
+Input (373 features)
+    → Dense 64, ReLU
+    → Dense 32, ReLU
+    → [Ethnicity head: 15 classes]  [Gender head: 3 classes]
+```
+
+### Feature vector (373 dimensions)
+
+| Group | Dims | Description |
+|---|---|---|
+| Character n-grams | 200 | Bigrams + trigrams, L2-normalised |
+| Char frequency | 26 | Letter density per character, normalised by name length |
+| First-char one-hot | 26 | Which letter starts the name |
+| Last-char one-hot | 26 | Which letter ends the name |
+| Prefix pairs | 40 | First-2-character vocabulary (binary) |
+| Suffix pairs | 40 | Last-2-character vocabulary (binary) |
+| Phonetic flags | 15 | `gb`, `kw`, `gw`, `nw`, `ch`, `sh`, `ts` clusters; vowel ratio; length; doubled letters |
+
+### Training results
+
+| Metric | Value |
+|---|---|
+| Training samples | 870 names |
+| Epochs | 400 |
+| Final ethnicity accuracy | 100.0 % |
+| Final gender accuracy | 99.9 % |
+| Weights file size | 216.7 KB |
+
+### Retrain
+
+```bash
+npm run train
+# Writes new weights to src/core/ml-weights.json
+```
+
+---
+
 ## Performance
 
 Benchmarked on Node.js 18, Windows 11:
 
-| Operation           | Speed      | Notes |
-|---------------------|------------|-------|
-| Single `match()`    | **~2.6 µs**| Faster than a function call in most web frameworks |
-| Batch (per name)    | **~2.1 µs**| Array of names processed in one go |
-| `analyzeFullName()` | **~49 µs** | Includes tokenising, per-token match, and aggregation |
-| `matchAsync()`      | **~2.6 µs**| No extra latency if Tier 4 is not triggered |
+| Operation | Speed | Notes |
+|---|---|---|
+| Single `match()` | **~2.6 µs** | Faster than a function call in most web frameworks |
+| Batch (per name) | **~2.1 µs** | Array of names processed in one go |
+| `analyzeFullName()` | **~49 µs** | Tokenising + per-token match + aggregation |
+| `matchAsync()` | **~2.6 µs** | No extra latency if Tier 4 is not triggered |
 
-No warm-up needed — the dictionary `Map` is built once at `require()` time and reused for every call.
+No warm-up needed — the dictionary `Map` and ML weights are loaded once at `require()` time and reused for every call.
 
 ---
 
@@ -404,7 +457,7 @@ npm test
 
 ---
 
-## Running tests & benchmarks
+## Running tests, benchmarks & training
 
 ```bash
 # Run the full test suite (49 assertions)
@@ -412,15 +465,19 @@ npm test
 
 # Run the performance benchmark
 npm run benchmark
+
+# Retrain the ML model (overwrites src/core/ml-weights.json)
+npm run train
 ```
 
 ---
 
 ## Roadmap
 
-- [ ] Grow dictionary to 5,000+ names
+- [x] Grow dictionary to 3,000+ names ✅ (3,332 as of latest release)
 - [x] Add Genderize.io / NamSor API as optional Tier 4 fallback ✅
-- [ ] Lightweight TensorFlow.js / ONNX model trained on labeled Nigerian names dataset
+- [x] Trained MLP model (Tier 3) — pure JS, 373 features, 100% train accuracy ✅
+- [ ] Grow dictionary to 5,000+ names
 - [ ] Browser-compatible ESM bundle (`index.mjs`)
 - [x] TypeScript type declarations (`index.d.ts`) ✅
 
